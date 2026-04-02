@@ -1,0 +1,67 @@
+{
+  "name": "@real-life-org/capacitor-zxing-scanner",
+  "version": "1.0.0",
+  "description": "Capacitor barcode scanner plugin using ZXing (Android) and AVFoundation (iOS) — F-Droid compatible",
+  "main": "dist/plugin.cjs.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/esm/index.d.ts",
+  "unpkg": "dist/plugin.js",
+  "files": [
+    "android/src/main/",
+    "android/build.gradle",
+    "android/AndroidManifest.xml",
+    "dist/",
+    "ios/Sources/",
+    "ios/Package.swift",
+    "CapacitorZxingScanner.podspec",
+    "package.json"
+  ],
+  "author": "real-life-org",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/real-life-org/capacitor-zxing-scanner"
+  },
+  "bugs": {
+    "url": "https://github.com/real-life-org/capacitor-zxing-scanner/issues"
+  },
+  "keywords": [
+    "capacitor",
+    "plugin",
+    "barcode",
+    "qr-code",
+    "zxing",
+    "scanner",
+    "fdroid",
+    "libre"
+  ],
+  "scripts": {
+    "build": "npm run clean && npm run docgen && tsc && rollup -c rollup.config.js",
+    "clean": "rimraf ./dist",
+    "docgen": "docgen --api CapacitorBarcodeScannerPlugin --output-json dist/docs.json",
+    "lint": "eslint . --ext ts",
+    "fmt": "prettier --write --parser typescript 'src/**/*.ts'",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/core": "^8.3.0",
+    "@capacitor/docgen": "^0.2.2",
+    "@capacitor/ios": "^8.0.0",
+    "prettier": "^3.0.0",
+    "rimraf": "^5.0.10",
+    "rollup": "^3.30.0",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "@capacitor/core": ">=4.0.0"
+  },
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    },
+    "android": {
+      "src": "android"
+    }
+  }
+}

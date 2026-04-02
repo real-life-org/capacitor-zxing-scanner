@@ -1,0 +1,27 @@
+node_modules/
+dist/
+package-lock.json
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Android
+android/.gradle/
+android/build/
+android/local.properties
+
+# iOS
+ios/DerivedData/
+ios/*.xcworkspace/xcuserdata/
+ios/Pods/
+ios/build/
+
+# npm
+*.tgz
