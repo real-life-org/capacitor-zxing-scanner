@@ -36,7 +36,7 @@
     "libre"
   ],
   "scripts": {
-    "build": "npm run clean && npm run docgen && tsc && rollup -c rollup.config.js",
+    "build": "npm run clean && mkdir -p dist && tsc && rollup -c rollup.config.js",
     "clean": "rimraf ./dist",
     "docgen": "docgen --api CapacitorBarcodeScannerPlugin --output-json dist/docs.json",
     "lint": "eslint . --ext ts",
