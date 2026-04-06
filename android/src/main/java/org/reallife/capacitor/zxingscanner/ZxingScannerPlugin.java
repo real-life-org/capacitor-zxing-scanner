@@ -43,6 +43,10 @@ public class ZxingScannerPlugin extends Plugin {
 
     private void startScannerActivity(PluginCall call) {
         Intent intent = new Intent(getContext(), ScannerActivity.class);
+        String instructions = call.getString("scanInstructions", "");
+        if (instructions != null && !instructions.isEmpty()) {
+            intent.putExtra(ScannerActivity.EXTRA_SCAN_INSTRUCTIONS, instructions);
+        }
         startActivityForResult(call, intent, "scanBarcodeResult");
     }
 

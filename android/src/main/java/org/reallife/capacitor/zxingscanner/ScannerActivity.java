@@ -1,11 +1,23 @@
 package org.reallife.capacitor.zxingscanner;
 
 import android.content.Intent;
-import android.graphics.ImageFormat;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.CornerPathEffect;
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
+import android.graphics.RectF;
 import android.os.Bundle;
 import android.util.Size;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.View;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -38,6 +50,7 @@ import java.util.concurrent.Executors;
 public class ScannerActivity extends AppCompatActivity {
 
     public static final String EXTRA_SCAN_RESULT = "SCAN_RESULT";
+    public static final String EXTRA_SCAN_INSTRUCTIONS = "SCAN_INSTRUCTIONS";
 
     private ExecutorService cameraExecutor;
     private volatile boolean resultDelivered = false;
@@ -46,15 +59,78 @@ public class ScannerActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        FrameLayout root = new FrameLayout(this);
+        root.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+        ));
+
+        // Camera preview
         PreviewView previewView = new PreviewView(this);
         previewView.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
         ));
-        setContentView(previewView);
+        root.addView(previewView);
+
+        // Scan overlay (darkened background with transparent scan box + corner brackets)
+        ScanOverlayView overlay = new ScanOverlayView(this);
+        overlay.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+        ));
+        root.addView(overlay);
+
+        // Instruction text above scan box
+        String instructions = getIntent().getStringExtra(EXTRA_SCAN_INSTRUCTIONS);
+        if (instructions == null || instructions.isEmpty()) {
+            instructions = "Code scannen";
+        }
+        TextView instructionText = new TextView(this);
+        instructionText.setText(instructions);
+        instructionText.setTextColor(Color.WHITE);
+        instructionText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        instructionText.setGravity(Gravity.CENTER);
+        FrameLayout.LayoutParams textParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+        );
+        textParams.gravity = Gravity.CENTER_HORIZONTAL | Gravity.TOP;
+        textParams.topMargin = (int) (getResources().getDisplayMetrics().heightPixels * 0.25f);
+        instructionText.setLayoutParams(textParams);
+        root.addView(instructionText);
+
+        // Close button (top right)
+        ImageView closeButton = new ImageView(this);
+        closeButton.setImageResource(android.R.drawable.ic_menu_close_clear_cancel);
+        closeButton.setColorFilter(Color.WHITE);
+        closeButton.setPadding(dp(12), dp(12), dp(12), dp(12));
+        closeButton.setBackground(createCircleBackground());
+        FrameLayout.LayoutParams closeParams = new FrameLayout.LayoutParams(dp(48), dp(48));
+        closeParams.gravity = Gravity.TOP | Gravity.END;
+        closeParams.topMargin = dp(48);
+        closeParams.rightMargin = dp(24);
+        closeButton.setLayoutParams(closeParams);
+        closeButton.setOnClickListener(v -> deliverCancel());
+        root.addView(closeButton);
+
+        setContentView(root);
 
         cameraExecutor = Executors.newSingleThreadExecutor();
         startCamera(previewView);
+    }
+
+    private android.graphics.drawable.GradientDrawable createCircleBackground() {
+        android.graphics.drawable.GradientDrawable drawable = new android.graphics.drawable.GradientDrawable();
+        drawable.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        drawable.setColor(Color.argb(100, 0, 0, 0));
+        return drawable;
+    }
+
+    private int dp(int value) {
+        return (int) TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics()
+        );
     }
 
     private void startCamera(PreviewView previewView) {
@@ -149,6 +225,81 @@ public class ScannerActivity extends AppCompatActivity {
         super.onDestroy();
         if (cameraExecutor != null) {
             cameraExecutor.shutdown();
+        }
+    }
+
+    /**
+     * Custom overlay view: semi-transparent background with a clear scan box
+     * and white corner brackets.
+     */
+    private static class ScanOverlayView extends View {
+        private final Paint dimPaint = new Paint();
+        private final Paint clearPaint = new Paint();
+        private final Paint bracketPaint = new Paint();
+        private final RectF scanBox = new RectF();
+
+        public ScanOverlayView(android.content.Context context) {
+            super(context);
+            setLayerType(LAYER_TYPE_SOFTWARE, null);
+
+            dimPaint.setColor(Color.argb(140, 0, 0, 0));
+            dimPaint.setStyle(Paint.Style.FILL);
+
+            clearPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
+
+            bracketPaint.setColor(Color.WHITE);
+            bracketPaint.setStyle(Paint.Style.STROKE);
+            bracketPaint.setStrokeWidth(4f);
+            bracketPaint.setAntiAlias(true);
+            bracketPaint.setPathEffect(new CornerPathEffect(8f));
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+
+            int w = getWidth();
+            int h = getHeight();
+            float boxSize = w * 0.7f;
+            float left = (w - boxSize) / 2f;
+            float top = h * 0.32f;
+            scanBox.set(left, top, left + boxSize, top + boxSize);
+
+            // Draw semi-transparent overlay
+            canvas.drawRect(0, 0, w, h, dimPaint);
+
+            // Cut out scan box (transparent)
+            canvas.drawRoundRect(scanBox, 16f, 16f, clearPaint);
+
+            // Draw corner brackets
+            float bracketLen = boxSize * 0.12f;
+            drawCornerBrackets(canvas, scanBox, bracketLen);
+        }
+
+        private void drawCornerBrackets(Canvas canvas, RectF box, float len) {
+            Path path = new Path();
+
+            // Top-left
+            path.moveTo(box.left, box.top + len);
+            path.lineTo(box.left, box.top);
+            path.lineTo(box.left + len, box.top);
+
+            // Top-right
+            path.moveTo(box.right - len, box.top);
+            path.lineTo(box.right, box.top);
+            path.lineTo(box.right, box.top + len);
+
+            // Bottom-right
+            path.moveTo(box.right, box.bottom - len);
+            path.lineTo(box.right, box.bottom);
+            path.lineTo(box.right - len, box.bottom);
+
+            // Bottom-left
+            path.moveTo(box.left + len, box.bottom);
+            path.lineTo(box.left, box.bottom);
+            path.lineTo(box.left, box.bottom - len);
+
+            canvas.drawPath(path, bracketPaint);
         }
     }
 }
