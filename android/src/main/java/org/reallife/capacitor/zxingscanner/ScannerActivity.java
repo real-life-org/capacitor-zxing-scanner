@@ -169,23 +169,25 @@ public class ScannerActivity extends AppCompatActivity {
             return;
         }
 
-        ByteBuffer buffer = imageProxy.getPlanes()[0].getBuffer();
-        byte[] bytes = new byte[buffer.remaining()];
-        buffer.get(bytes);
-
-        int width = imageProxy.getWidth();
-        int height = imageProxy.getHeight();
-
-        PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(
-                bytes, width, height, 0, 0, width, height, false
-        );
-        BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
-
-        Map<DecodeHintType, Object> hints = new EnumMap<>(DecodeHintType.class);
-        hints.put(DecodeHintType.POSSIBLE_FORMATS, Collections.singletonList(BarcodeFormat.QR_CODE));
-        hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
-
+        // close() MUSS jeden Pfad abdecken (auch eine werfende Extraktion) —
+        // sonst haelt CameraX den Frame-Slot und liefert keine weiteren Bilder.
         try {
+            int width = imageProxy.getWidth();
+            int height = imageProxy.getHeight();
+            ImageProxy.PlaneProxy yPlane = imageProxy.getPlanes()[0];
+            byte[] bytes = extractLuminance(
+                    yPlane.getBuffer(), yPlane.getRowStride(), yPlane.getPixelStride(), width, height
+            );
+
+            PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(
+                    bytes, width, height, 0, 0, width, height, false
+            );
+            BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
+
+            Map<DecodeHintType, Object> hints = new EnumMap<>(DecodeHintType.class);
+            hints.put(DecodeHintType.POSSIBLE_FORMATS, Collections.singletonList(BarcodeFormat.QR_CODE));
+            hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
+
             Result result = new MultiFormatReader().decode(bitmap, hints);
             deliverResult(result.getText());
         } catch (NotFoundException e) {
@@ -193,6 +195,39 @@ public class ScannerActivity extends AppCompatActivity {
         } finally {
             imageProxy.close();
         }
+    }
+
+    /**
+     * Copies the Y plane into a tightly packed width*height array.
+     *
+     * PlanarYUVLuminanceSource assumes packed rows (row length == width). Many
+     * camera HALs (notably Huawei) pad each row (rowStride > width) and some
+     * use pixelStride > 1 — feeding the raw buffer then shears every row and
+     * ZXing can never decode. This copy honours both strides.
+     */
+    static byte[] extractLuminance(ByteBuffer buffer, int rowStride, int pixelStride, int width, int height) {
+        if (pixelStride == 1 && rowStride == width && buffer.remaining() >= width * height) {
+            byte[] packed = new byte[width * height];
+            buffer.get(packed, 0, width * height);
+            return packed;
+        }
+
+        byte[] packed = new byte[width * height];
+        byte[] row = new byte[rowStride];
+        for (int y = 0; y < height; y++) {
+            buffer.position(y * rowStride);
+            // Die letzte Zeile kann kuerzer als rowStride sein (kein Padding).
+            int rowLength = Math.min(rowStride, buffer.remaining());
+            buffer.get(row, 0, rowLength);
+            if (pixelStride == 1) {
+                System.arraycopy(row, 0, packed, y * width, width);
+            } else {
+                for (int x = 0; x < width; x++) {
+                    packed[y * width + x] = row[x * pixelStride];
+                }
+            }
+        }
+        return packed;
     }
 
     private void deliverResult(String text) {
