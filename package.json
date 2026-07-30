@@ -1,6 +1,6 @@
 {
   "name": "@real-life-org/capacitor-zxing-scanner",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Capacitor barcode scanner plugin using ZXing (Android) and AVFoundation (iOS) — F-Droid compatible",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
