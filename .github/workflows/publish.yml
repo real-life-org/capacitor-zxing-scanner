@@ -1,0 +1,51 @@
+name: Publish to npm
+
+on:
+  # Feuert bei von Hand angelegten Releases. Fuer Bot-erzeugte Releases
+  # (GITHUB_TOKEN) loest GitHub keine Workflows aus — dann workflow_dispatch
+  # mit dem Ziel-Tag nutzen. Muster analog web-of-trust/publish.yml.
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag, dessen Stand publiziert wird (z.B. v1.1.1)'
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Ohne id-token kein OIDC-Token und damit kein Trusted Publishing.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Manueller Re-Run MUSS auf dem Ziel-Tag stehen, nie auf main-HEAD.
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
+
+      - uses: actions/setup-node@v4
+        with:
+          # node 24 bringt npm >= 11.5 mit — Mindestversion fuer Trusted
+          # Publishing (aeltere npm-CLIs kennen den OIDC-Austausch nicht).
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # Idempotenz-Guard: ein Re-Run eines bereits publizierten Tags soll
+      # gruen enden statt an EPUBLISHCONFLICT zu scheitern.
+      - name: Publish (Trusted Publishing, OIDC)
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "$NAME@$VERSION ist bereits publiziert — überspringe."
+            exit 0
+          fi
+          npm publish --access public
