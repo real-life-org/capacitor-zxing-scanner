@@ -169,20 +169,25 @@ public class ScannerActivity extends AppCompatActivity {
             return;
         }
 
-        int width = imageProxy.getWidth();
-        int height = imageProxy.getHeight();
-        byte[] bytes = extractLuminance(imageProxy.getPlanes()[0], width, height);
-
-        PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(
-                bytes, width, height, 0, 0, width, height, false
-        );
-        BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
-
-        Map<DecodeHintType, Object> hints = new EnumMap<>(DecodeHintType.class);
-        hints.put(DecodeHintType.POSSIBLE_FORMATS, Collections.singletonList(BarcodeFormat.QR_CODE));
-        hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
-
+        // close() MUSS jeden Pfad abdecken (auch eine werfende Extraktion) —
+        // sonst haelt CameraX den Frame-Slot und liefert keine weiteren Bilder.
         try {
+            int width = imageProxy.getWidth();
+            int height = imageProxy.getHeight();
+            ImageProxy.PlaneProxy yPlane = imageProxy.getPlanes()[0];
+            byte[] bytes = extractLuminance(
+                    yPlane.getBuffer(), yPlane.getRowStride(), yPlane.getPixelStride(), width, height
+            );
+
+            PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(
+                    bytes, width, height, 0, 0, width, height, false
+            );
+            BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
+
+            Map<DecodeHintType, Object> hints = new EnumMap<>(DecodeHintType.class);
+            hints.put(DecodeHintType.POSSIBLE_FORMATS, Collections.singletonList(BarcodeFormat.QR_CODE));
+            hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
+
             Result result = new MultiFormatReader().decode(bitmap, hints);
             deliverResult(result.getText());
         } catch (NotFoundException e) {
@@ -200,11 +205,7 @@ public class ScannerActivity extends AppCompatActivity {
      * use pixelStride > 1 — feeding the raw buffer then shears every row and
      * ZXing can never decode. This copy honours both strides.
      */
-    private static byte[] extractLuminance(ImageProxy.PlaneProxy yPlane, int width, int height) {
-        ByteBuffer buffer = yPlane.getBuffer();
-        int rowStride = yPlane.getRowStride();
-        int pixelStride = yPlane.getPixelStride();
-
+    static byte[] extractLuminance(ByteBuffer buffer, int rowStride, int pixelStride, int width, int height) {
         if (pixelStride == 1 && rowStride == width && buffer.remaining() >= width * height) {
             byte[] packed = new byte[width * height];
             buffer.get(packed, 0, width * height);
