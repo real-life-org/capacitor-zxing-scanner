@@ -1,6 +1,9 @@
 // swift-tools-version: 5.9
 import PackageDescription
 
+// Swift Package Manager manifest at the package root: the Capacitor CLI (`cap sync ios` with SPM)
+// looks for Package.swift next to package.json and skips a plugin without one ("does not have a
+// Package.swift"). The sources stay under ios/, as the podspec expects.
 let package = Package(
     name: "CapacitorZxingScanner",
     platforms: [.iOS(.v15)],
@@ -19,7 +22,7 @@ let package = Package(
                 .product(name: "Capacitor", package: "capacitor-swift-pm"),
                 .product(name: "Cordova", package: "capacitor-swift-pm")
             ],
-            path: "Sources/CapacitorZxingScanner"
+            path: "ios/Sources/CapacitorZxingScanner"
         )
     ]
 )

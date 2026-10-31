@@ -22,6 +22,8 @@ npm install @real-life-org/capacitor-zxing-scanner
 npx cap sync
 ```
 
+iOS: works with both package managers of the Capacitor CLI. Swift Package Manager reads `Package.swift` at the package root (since 1.1.2), CocoaPods reads `CapacitorZxingScanner.podspec`.
+
 ## Usage
 
 You can use the exported `CapacitorBarcodeScanner` exactly as you would the official plugin:
