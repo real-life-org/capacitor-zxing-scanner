@@ -6,12 +6,15 @@ import PackageDescription
 // Package.swift"). The sources stay under ios/, as the podspec expects.
 // `from: "8.0.0"` means 8.0.0 ..< 9.0.0 (SwiftPM's up-to-next-major), the range the Capacitor 8
 // plugins declare; an app pins the exact Capacitor version in its own CapApp-SPM/Package.swift.
+// Package and product are named as the Capacitor CLI derives the name from the npm package name
+// (`@real-life-org/capacitor-zxing-scanner` -> RealLifeOrgCapacitorZxingScanner, cli fixName); the
+// generated CapApp-SPM/Package.swift asks for exactly that product.
 let package = Package(
-    name: "CapacitorZxingScanner",
+    name: "RealLifeOrgCapacitorZxingScanner",
     platforms: [.iOS(.v15)],
     products: [
         .library(
-            name: "CapacitorZxingScanner",
+            name: "RealLifeOrgCapacitorZxingScanner",
             targets: ["CapacitorZxingScanner"])
     ],
     dependencies: [
